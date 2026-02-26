@@ -4972,14 +4972,14 @@ ipsw_prepare_ios4powder() {
         ExtraArgs+=" ../saved/$device_type/activation-$device_ecid.tar"
     fi
 
-    local ExtraArr=("--boot-partition" "--boot-ramdisk" "--logo4")
+    local ExtraArr=("--boot-partition" "--boot-ramdisk" "--logo4" "--debug")
     case $device_target_vers in
         4.3.[45] ) :;;
         * ) ExtraArr+=("--433");;
     esac
     local bootargs="$device_bootargs_default"
     if [[ $ipsw_verbose == 1 ]]; then
-        bootargs="pio-error=0 -v"
+        bootargs="pio-error=0 -v amfi=0xff cs_enforcement_disable=1"
     fi
     ExtraArr+=("-b" "$bootargs")
     patch_iboot "${ExtraArr[@]}"
