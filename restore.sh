@@ -2698,11 +2698,11 @@ ipsw_preference_set() {
     # Setup.app Deletion Prompt
     # Show for powdersn0w, tethered, SHSH restores, OR if we are explicitly in "Create Custom IPSW" mode
     # Do NOT show for AppleInternal
-    # Range: iOS 6.x to 10.x only
+    # Do NOT show for iOS < 5 (Setup.app does not exist)
     local maj_ver=$(echo "$device_target_vers" | cut -d. -f1)
-    if [[ $ipsw_appleinternal != 1 ]] && 
-       [[ $device_target_powder == 1 || $device_target_tethered == 1 || $device_target_other == 1 || $mode == "custom-ipsw" ]] &&
-       (( maj_ver >= 6 && maj_ver <= 10 )); then
+    
+    if [[ $ipsw_appleinternal != 1 ]] && (( maj_ver >= 5 )) && \
+       [[ $device_target_powder == 1 || $device_target_tethered == 1 || $device_target_other == 1 || $mode == "custom-ipsw" ]]; then
         input "Delete Setup.app Option"
         warn "This option removes Setup.app from the filesystem."
         print "* This is NOT intended for iCloud bypassing or unlocking stolen devices."
@@ -2711,10 +2711,27 @@ ipsw_preference_set() {
         print "* This option is disabled by default (N). Select this option if unsure."
         select_yesno "Enable this option?" 0
         if [[ $? != 0 ]]; then
-            log "Delete Setup.app option enabled."
-            ipsw_delsetupapp=1
-            # Force custom IPSW creation since we are modifying the FS
-            ipsw_nskip=1
+            # Check for unsupported versions (Support range: iOS 6.x - 10.x)
+            if (( maj_ver < 6 || maj_ver > 10 )); then
+                echo
+                warn "You are attempting to delete Setup.app on iOS $device_target_vers."
+                print "* This feature is known to work reliably only on iOS 6.x to 10.x."
+                print "* It will likely NOT work on this version (device may bootloop or ignore the change)."
+                select_yesno "Are you sure you want to continue?" 0
+                if [[ $? != 0 ]]; then
+                    log "Delete Setup.app option enabled (despite warning)."
+                    ipsw_delsetupapp=1
+                    ipsw_nskip=1
+                else
+                    log "Delete Setup.app option cancelled by user."
+                    ipsw_delsetupapp=
+                fi
+            else
+                log "Delete Setup.app option enabled."
+                ipsw_delsetupapp=1
+                # Force custom IPSW creation since we are modifying the FS
+                ipsw_nskip=1
+            fi
         else
             ipsw_delsetupapp=
         fi
@@ -2731,9 +2748,13 @@ ipsw_preference_set() {
     fi
     
     # Early return check: If no modifications are needed, return.
-    # Added ipsw_nskip check to ensure we continue if Setup.app deletion (or other mod) was selected
-    if [[ $ipsw_nskip != 1 ]] && (( device_proc >= 7 || ($device_target_vers == "$device_latest_vers" && $ipsw_canjailbreak != 1 && $ipsw_gasgauge_patch != 1) )); then
-        return
+    # Fixed syntax error: Separated arithmetic (( )) and string [[ ]] checks
+    if [[ $ipsw_nskip != 1 ]]; then
+        if (( device_proc >= 7 )); then
+            return
+        elif [[ $device_target_vers == "$device_latest_vers" && $ipsw_canjailbreak != 1 && $ipsw_gasgauge_patch != 1 ]]; then
+            return
+        fi
     fi
 
     # jailbreak option: available for versions 3.1.3 to 9.3.4...
