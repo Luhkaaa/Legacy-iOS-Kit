@@ -11294,7 +11294,7 @@ menu_usefulutilities() {
                 [56] ) menu_items+=("Send Pwned iBSS");;
                 *    ) menu_items+=("Enter pwnDFU Mode");;
             esac
-            menu_items+=("Clear NVRAM")
+            menu_items+=("Clear NVRAM" "Set NVRAM Variable")
             if [[ $device_canpowder == 1 ]]; then
                 menu_items+=("Disable/Enable Exploit")
             elif [[ $device_type == "iPhone2,1" && $device_newbr != 0 && $device_mode != "Normal" ]]; then
@@ -11319,7 +11319,7 @@ menu_usefulutilities() {
             fi
         fi
         if (( device_proc >= 7 )) && (( device_proc <= 10 )); then
-            menu_items+=("Enter pwnDFU Mode")
+            menu_items+=("Enter pwnDFU Mode" "Set NVRAM Variable")
         fi
         if (( device_proc <= 10 )) && [[ $device_latest_vers != "16"* && $device_checkm8ipad != 1 ]]; then
             menu_items+=("SSH Ramdisk" "Update DateTime")
@@ -11341,6 +11341,7 @@ menu_usefulutilities() {
             "Disable/Enable Exploit" ) menu_remove4;;
             "SSH Ramdisk" ) mode="device_enter_ramdisk";;
             "Clear NVRAM" ) mode="ramdisknvram";;
+            "Set NVRAM Variable" ) mode="setnvram_irec";;
             "Send Pwned iBSS" | "Enter pwnDFU Mode" ) mode="pwned-ibss";;
             "Install alloc8 Exploit" )
                 warn "This will install alloc8 exploit to the device. Only do this if your device is successfully restored already."
@@ -11377,6 +11378,40 @@ menu_usefulutilities() {
             "Go Back" ) back=1;;
         esac
     done
+}
+
+device_setnvram_irec() {
+    if [[ $device_mode == "Normal" ]]; then
+        print "* Device is in Normal mode. Entering Recovery mode to set NVRAM..."
+        device_enter_mode Recovery
+    fi
+    
+    local nvram_arg
+    local nvram_val
+    
+    echo
+    print "* Enter the NVRAM argument name (e.g. debug-uarts):"
+    read -p "$(input 'Argument name: ')" nvram_arg
+    [[ -z "$nvram_arg" ]] && return
+    
+    print "* Enter the value for $nvram_arg (e.g. 3):"
+    read -p "$(input 'Value: ')" nvram_val
+    [[ -z "$nvram_val" ]] && return
+    
+    log "Setting NVRAM variable: $nvram_arg = $nvram_val"
+    $irecovery -c "setenv $nvram_arg $nvram_val"
+    sleep 1
+    
+    log "Saving NVRAM..."
+    $irecovery -c "saveenv"
+    sleep 1
+    
+    log "Resetting device..."
+    $irecovery -c "reset"
+    
+    echo
+    log "NVRAM variable set successfully. Exiting."
+    exit 0
 }
 
 device_update_datetime() {
@@ -12881,6 +12916,7 @@ main() {
         "restore-update" ) restore_latest update;;
         "kdfu"         ) device_enter_mode kDFU;;
         "ramdisknvram" ) device_ramdisk clearnvram;;
+        "setnvram_irec") device_setnvram_irec;;
         "pwned-ibss"   ) device_enter_mode pwnDFU;;
         "enterrecovery") device_enter_mode Recovery;;
         "exitrecovery" )
